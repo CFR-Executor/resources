@@ -1,4 +1,4 @@
-quests = {
+local quests = {
     "BanditQuest1": [
         {
             "LevelReq": 0,
