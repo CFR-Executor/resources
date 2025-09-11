@@ -1,0 +1,30 @@
+local Player = game.Players.LocalPlayer
+local Enemies = workspace:WaitForChild("Enemies")
+local Net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = Net.RE.RegisterAttack
+local RegisterHit = Net.RE.RegisterHit
+
+local function isAlive(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
+end
+
+task.spawn(function()
+    while task.wait() do
+        local tool = Player.Character and Player.Character:FindFirstChildOfClass("Tool")
+        if tool and tool.ToolTip ~= "Gun" and isAlive(Player.Character) then
+            local targets = {}
+            local base = nil
+            for _, e in ipairs(Enemies:GetChildren()) do
+                if isAlive(e) and e:FindFirstChild("Head") then
+                    table.insert(targets, {e, e.Head})
+                    base = e.Head
+                end
+            end
+            if base then
+                RegisterAttack:FireServer(0)
+                RegisterHit:FireServer(base, targets)
+            end
+        end
+    end
+end)
