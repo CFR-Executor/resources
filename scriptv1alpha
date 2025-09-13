@@ -1,0 +1,300 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local autoAttack = false
+local Settings = {Distance = 50, AttackDelay = 0}
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Net = Modules:WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+local hitData = {[4] = "4676ac1a"}
+local selectedWeaponType = "Melee"
+local selectedStat = "Melee"
+local autoStats = false
+local addAmount = 1
+
+Player.CharacterAdded:Connect(function(c)
+	Character = c
+	Humanoid = c:WaitForChild("Humanoid")
+	HumanoidRootPart = c:WaitForChild("HumanoidRootPart")
+	if not Character:FindFirstChild("HasBuso") then
+		ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+	end
+end)
+
+local function toggleAutoAttack()
+	autoAttack = not autoAttack
+	if autoAttack then
+		task.spawn(function()
+			while autoAttack do
+				if not HumanoidRootPart then break end
+				local enemiesInRange = {}
+				for _, enemy in ipairs(Workspace.Enemies:GetChildren()) do
+					local head = enemy:FindFirstChild("Head")
+					if head and (HumanoidRootPart.Position - head.Position).Magnitude <= Settings.Distance then
+						table.insert(enemiesInRange, {enemy, head})
+					end
+				end
+				if #enemiesInRange >= 1 then
+					local target = enemiesInRange[1]
+					local args
+					if #enemiesInRange >= 2 then
+						local other = enemiesInRange[2]
+						args = {target[2], {{other[1], other[2]}}, [4] = hitData[4]}
+					else
+						args = {target[2], {}, [4] = hitData[4]}
+					end
+					RegisterAttack:FireServer(0)
+					RegisterHit:FireServer(unpack(args))
+				end
+				for _, tool in ipairs(Player.Backpack:GetChildren()) do
+					if tool:IsA("Tool") then
+						if tool.ToolTip == selectedWeaponType then
+							tool.Parent = Character
+						else
+							tool.Parent = Player.Backpack
+						end
+					end
+				end
+				for _, tool in ipairs(Character:GetChildren()) do
+					if tool:IsA("Tool") and tool.ToolTip ~= selectedWeaponType then
+						tool.Parent = Player.Backpack
+					end
+				end
+				task.wait(Settings.AttackDelay)
+			end
+		end)
+	end
+end
+
+local SetWalkSpeed = Humanoid.WalkSpeed
+local library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
+local Window = library:CreateWindow({ Name = "ZX9 Hub | Blox Fruits" })
+local MainTab = Window:CreateTab({ Name = "Main" })
+local AutoFarmSection = MainTab:CreateSection({ Name = "Auto Farm" })
+local PlayerSection = MainTab:CreateSection({ Name = "Player" })
+local MiscSection = MainTab:CreateSection({ Name = "Misc" })
+
+local weaponOptions = {"Melee","Sword"}
+local weaponIndex = 1
+local weaponBtn
+weaponBtn = AutoFarmSection:AddButton({
+	Name = "Weapon Type: " .. selectedWeaponType,
+	Callback = function()
+		weaponIndex = (weaponIndex % #weaponOptions) + 1
+		selectedWeaponType = weaponOptions[weaponIndex]
+		weaponBtn.Instance.Text = "Weapon Type: " .. selectedWeaponType
+	end
+})
+
+AutoFarmSection:AddToggle({
+    Name = "Auto Attack",
+    CurrentValue = false,
+    Flag = "AutoAttack",
+    Callback = function(value)
+        toggleAutoAttack()
+    end
+})
+
+PlayerSection:AddSlider({
+	Name = "WalkSpeed",
+	Min = 16,
+	Max = 325,
+	Default = Humanoid.WalkSpeed,
+	Color = Color3.fromRGB(255,255,255),
+	Increment = 1,
+	Callback = function(value)
+		SetWalkSpeed = value
+	end
+})
+
+local infJumpEnabled = false
+local holding = false
+PlayerSection:AddToggle({
+	Name = "Infinite Jump",
+	CurrentValue = false,
+	Flag = "InfiniteJump",
+	Callback = function(value)
+		infJumpEnabled = value
+	end
+})
+
+UserInputService.InputBegan:Connect(function(input, gp)
+	if not gp and input.KeyCode == Enum.KeyCode.Space then
+		holding = true
+		task.spawn(function()
+			while holding and infJumpEnabled and Player.Character do
+				local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					local anim = Instance.new("Animation")
+					anim.AnimationId = "rbxassetid://9884586404"
+					local animator = humanoid:FindFirstChildOfClass("Animator")
+					if animator then
+						local track = animator:LoadAnimation(anim)
+						track:Play()
+					end
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+				task.wait(0.55)
+			end
+		end)
+	end
+end)
+
+local waterWalk = Instance.new("Part", workspace)
+waterWalk.Transparency = 1
+waterWalk.Name = "WaterWalk"
+waterWalk.Size = Vector3.new(1000, 1, 1000)
+waterWalk.Anchored = true
+
+UserInputService.InputEnded:Connect(function(input, gp)
+	if not gp and input.KeyCode == Enum.KeyCode.Space then
+		holding = false
+	end
+end)
+
+local statOptions = {"Melee","Defense","Sword","Gun","Demon Fruit"}
+local statIndex = 1
+local statBtn
+statBtn = PlayerSection:AddButton({
+	Name = "Stat: " .. selectedStat,
+	Callback = function()
+		statIndex = (statIndex % #statOptions) + 1
+		selectedStat = statOptions[statIndex]
+		statBtn.Instance.Text = "Stat: " .. selectedStat
+	end
+})
+
+PlayerSection:AddSlider({
+	Name = "Stat Amount",
+	Min = 1,
+	Max = 10,
+	Default = 1,
+	Increment = 1,
+	Callback = function(value)
+		addAmount = value
+	end
+})
+
+PlayerSection:AddToggle({
+	Name = "Auto Stats",
+	CurrentValue = false,
+	Flag = "AutoStats",
+	Callback = function(value)
+		autoStats = value
+	end
+})
+
+PlayerSection:AddToggle({
+	Name = "Walk on Water",
+	CurrentValue = false,
+	Flag = "WalkOnWater",
+	Callback = function(value)
+		waterWalk.CanCollide = value
+	end
+})
+
+RunService.Heartbeat:Connect(function(dt)
+	if autoStats then
+		ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", selectedStat, addAmount)
+	end
+	if Humanoid and Character and Character.PrimaryPart then
+		local moveDir = Humanoid.MoveDirection
+		if moveDir.Magnitude > 0 then
+			local newCFrame = Character.PrimaryPart.CFrame + (moveDir * (SetWalkSpeed * dt))
+			Character:SetPrimaryPartCFrame(newCFrame)
+			Humanoid.WalkSpeed = 16
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	waterWalk.Position = Vector3.new(HumanoidRootPart.Position.X, -4.5, HumanoidRootPart.Position.Z)
+end)
+
+MiscSection:AddButton({
+	Name = "Toggle Damage UI",
+	Callback = function()
+		game.ReplicatedStorage:WaitForChild("Assets"):WaitForChild("GUI"):FindFirstChild("DamageCounter").Enabled = not game.ReplicatedStorage:WaitForChild("Assets"):WaitForChild("GUI"):FindFirstChild("DamageCounter").Enabled
+	end
+})
+
+MiscSection:AddButton({
+	Name = "Toggle Notifications",
+	Callback = function()
+		game:GetService("Players").LocalPlayer.PlayerGui.Notifications.Enabled = not game:GetService("Players").LocalPlayer.PlayerGui.Notifications.Enabled
+	end
+})
+
+MiscSection:AddButton({
+	Name = "Rejoin",
+	Callback = function()
+		queue_on_teleport([[
+			loadstring(game:HttpGet('https://pastebin.com/raw/TAxQY7uz'))()
+		]])
+		game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+	end
+})
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Player = game.Players.LocalPlayer
+
+local function getServers(placeId)
+    local servers, cursor = {}, nil
+    repeat
+        local url = ("https://games.roblox.com/v1/games/%s/servers/Public?limit=100%s"):format(
+            placeId, cursor and "&cursor="..HttpService:UrlEncode(cursor) or "")
+        local ok, res = pcall(function() return HttpService:GetAsync(url) end)
+        if not ok then break end
+        local data = HttpService:JSONDecode(res)
+        for _, s in ipairs(data.data) do
+            if s.id ~= game.JobId and s.playing < s.maxPlayers then
+                table.insert(servers, s.id)
+            end
+        end
+        cursor = data.nextPageCursor
+    until not cursor
+    return servers
+end
+
+MiscSection:AddButton({
+    Name = "Server Hop",
+    Callback = function()
+        if not queue_on_teleport then return end
+        local src = [[
+            loadstring(game:HttpGet('https://pastebin.com/raw/TAxQY7uz'))()
+        ]]
+        queue_on_teleport(src)
+
+        local servers = getServers(game.PlaceId)
+        if #servers > 0 then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(#servers)], Player)
+        else
+            TeleportService:Teleport(game.PlaceId, Player)
+        end
+    end
+})
+
+MiscSection:AddToggle({
+	Name = "Anti AFK",
+	CurrentValue = false,
+	Flag = "AntiAFK",
+	Callback = function(value)
+		if value then
+			Player.Idled:Connect(function()
+				game:GetService("VirtualUser"):ClickButton2(Vector2.new(0,0))
+			end)
+		end
+	end
+})
+
+ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
